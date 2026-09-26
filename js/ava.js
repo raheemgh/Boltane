@@ -502,7 +502,7 @@
   // lookup fails for any reason, we simply proceed as a fresh
   // session rather than blocking the visitor.
   function checkForExistingSession(contactNumber, cb) {
-    if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('https://cumulative-chicken-relation-harmony.trycloudflare.com') === 0) {
+    if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('YOUR_AVA_BACKEND_URL_HERE') === 0) {
       cb(null);
       return;
     }
@@ -625,7 +625,7 @@
       payload.referral_code = referralCode;
     }
 
-    if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('https://cumulative-chicken-relation-harmony.trycloudflare.com') === 0) {
+    if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('YOUR_AVA_BACKEND_URL_HERE') === 0) {
       // Backend not deployed yet — degrade gracefully rather than
       // hang on a typing indicator forever.
       setTimeout(function () {
@@ -702,7 +702,7 @@
       if (!file) return;
       if (status) { status.hidden = false; status.textContent = t('chatAttachSending'); }
 
-      if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('https://cumulative-chicken-relation-harmony.trycloudflare.com') === 0) {
+      if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('YOUR_AVA_BACKEND_URL_HERE') === 0) {
         if (status) status.textContent = t('chatAttachErr');
         return;
       }
@@ -743,7 +743,7 @@
 
       var contactNumber = state.businessContext ? state.businessContext.contact_number : '';
 
-      if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('https://cumulative-chicken-relation-harmony.trycloudflare.com') === 0) {
+      if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('YOUR_AVA_BACKEND_URL_HERE') === 0) {
         if (warn) { warn.textContent = t('chatErrorFallback'); warn.hidden = false; }
         return;
       }
