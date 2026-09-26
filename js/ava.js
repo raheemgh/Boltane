@@ -11,7 +11,7 @@
   // ---------------------------------------------------------------
   // Config — single place to fill in once the backend is deployed.
   // ---------------------------------------------------------------
-  var AVA_BACKEND_URL = 'https://followed-broader-finish-louisiana.trycloudflare.com'; // e.g. https://ava-backend-xyz.vercel.app
+  var AVA_BACKEND_URL = 'https://cumulative-chicken-relation-harmony.trycloudflare.com'; // e.g. https://ava-backend-xyz.vercel.app
   var BOLTANE_WHATSAPP = '963982195846';
   var MAX_RESETS = 3;
 
@@ -502,7 +502,7 @@
   // lookup fails for any reason, we simply proceed as a fresh
   // session rather than blocking the visitor.
   function checkForExistingSession(contactNumber, cb) {
-    if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('https://followed-broader-finish-louisiana.trycloudflare.com') === 0) {
+    if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('https://cumulative-chicken-relation-harmony.trycloudflare.com') === 0) {
       cb(null);
       return;
     }
@@ -625,7 +625,7 @@
       payload.referral_code = referralCode;
     }
 
-    if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('https://followed-broader-finish-louisiana.trycloudflare.com') === 0) {
+    if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('https://cumulative-chicken-relation-harmony.trycloudflare.com') === 0) {
       // Backend not deployed yet — degrade gracefully rather than
       // hang on a typing indicator forever.
       setTimeout(function () {
@@ -702,7 +702,7 @@
       if (!file) return;
       if (status) { status.hidden = false; status.textContent = t('chatAttachSending'); }
 
-      if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('https://followed-broader-finish-louisiana.trycloudflare.com') === 0) {
+      if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('https://cumulative-chicken-relation-harmony.trycloudflare.com') === 0) {
         if (status) status.textContent = t('chatAttachErr');
         return;
       }
@@ -743,7 +743,7 @@
 
       var contactNumber = state.businessContext ? state.businessContext.contact_number : '';
 
-      if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('https://followed-broader-finish-louisiana.trycloudflare.com') === 0) {
+      if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('https://cumulative-chicken-relation-harmony.trycloudflare.com') === 0) {
         if (warn) { warn.textContent = t('chatErrorFallback'); warn.hidden = false; }
         return;
       }
