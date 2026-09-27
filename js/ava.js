@@ -11,7 +11,7 @@
   // ---------------------------------------------------------------
   // Config — single place to fill in once the backend is deployed.
   // ---------------------------------------------------------------
-  var AVA_BACKEND_URL = 'https://into-monitoring-thy-lap.trycloudflare.com'; // e.g. https://ava-backend-xyz.vercel.app
+  var AVA_BACKEND_URL = 'https://coming-combines-formatting-brand.trycloudflare.com'; // e.g. https://ava-backend-xyz.vercel.app
   var BOLTANE_WHATSAPP = '963982195846';
   var MAX_RESETS = 3;
 
