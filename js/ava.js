@@ -11,7 +11,7 @@
   // ---------------------------------------------------------------
   // Config — single place to fill in once the backend is deployed.
   // ---------------------------------------------------------------
-  var AVA_BACKEND_URL = 'https://extremely-singer-platforms-everybody.trycloudflare.com'; // e.g. https://ava-backend-xyz.vercel.app
+  var AVA_BACKEND_URL = 'https://additionally-every-excess-budapest.trycloudflare.com'; // e.g. https://ava-backend-xyz.vercel.app
   var BOLTANE_WHATSAPP = '963982195846';
   var MAX_RESETS = 3;
 
