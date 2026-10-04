@@ -21,8 +21,10 @@
     resets: 'boltane-ava-resets',
     contextSent: 'boltane-ava-context-sent',
     done: 'boltane-ava-done',
-    metaSetupDone: 'boltane-ava-meta-setup-done'
+    metaSetupDone: 'boltane-ava-meta-setup-done',
+    phoneId: 'boltane-ava-phone-number-id'
   };
+  var MAX_PDF_BYTES = 10 * 1024 * 1024; // same cap the backend enforces
 
   // ---------------------------------------------------------------
   // Flags: rendered via the flag-icons library (flag-icons.css,
@@ -224,6 +226,16 @@
     var dict = (window.__BOLTANE_STRINGS__ || {})[lang()];
     return (dict && dict[key]) || key;
   }
+  // Strings added after main.js's dictionary was written (main.js wins if it ever defines the same key).
+  var EXTRA_STRINGS = {
+    en: { metaSetupAlready: 'We already received your details for this number. If you did not see your activation code, please contact us on WhatsApp and we will send it to you:' },
+    ar: { metaSetupAlready: 'استلمنا بياناتك لهذا الرقم مسبقًا. إن لم يظهر لك رمز التفعيل، تواصل معنا عبر واتساب وسنرسله لك:' }
+  };
+  function tx(key) {
+    var v = t(key);
+    return v !== key ? v : ((EXTRA_STRINGS[lang()] || {})[key] || key);
+  }
+  var attachRefresh = function () {}; // replaced by initAttach()
 
   // ---------------------------------------------------------------
   // Local state
@@ -235,6 +247,8 @@
     resetsUsed: 0,
     isDone: false,
     metaSetupDone: false,
+    phoneNumberId: '',
+    sending: false,
     selectedCountry: null,
     selectedDial: null
   };
@@ -271,6 +285,7 @@
       state.contextSent = s === '1';
       state.isDone = d === '1';
       state.metaSetupDone = m === '1';
+      state.phoneNumberId = localStorage.getItem(STORAGE_KEYS.phoneId) || '';
     } catch (e) {
       state.history = [];
     }
@@ -283,6 +298,7 @@
       localStorage.setItem(STORAGE_KEYS.contextSent, state.contextSent ? '1' : '0');
       localStorage.setItem(STORAGE_KEYS.done, state.isDone ? '1' : '0');
       localStorage.setItem(STORAGE_KEYS.metaSetupDone, state.metaSetupDone ? '1' : '0');
+      localStorage.setItem(STORAGE_KEYS.phoneId, state.phoneNumberId || '');
     } catch (e) { /* storage full/unavailable — degrade silently, session just won't persist */ }
   }
 
@@ -452,7 +468,17 @@
         return;
       }
 
-      var localNumber = rawNumber.replace(/^0+/, '');
+      // Digits only: spaces/dashes/brackets would make the same phone look like different numbers, and the
+      // backend de-duplicates (and finds the signup again at the final step) on this exact string.
+      var asciiDigits = rawNumber
+        .replace(/[\u0660-\u0669]/g, function (d) { return String(d.charCodeAt(0) - 0x0660); })
+        .replace(/[\u06F0-\u06F9]/g, function (d) { return String(d.charCodeAt(0) - 0x06F0); });
+      var localNumber = asciiDigits.replace(/\D/g, '').replace(/^0+/, '');
+      if (localNumber.length < 6) {
+        var badNumber = form.querySelector('[data-intake-warning]');
+        if (badNumber) badNumber.hidden = false;
+        return;
+      }
       var contactNumber = dial.dial + ' ' + localNumber;
 
       state.businessContext = {
@@ -572,14 +598,15 @@
     if (el) el.hidden = !on;
   }
 
-  function lockChatInput() {
+  function lockChatInput(early) {
     var row = document.querySelector('[data-chat-input-row]');
     if (row) {
       row.querySelector('input').disabled = true;
       row.querySelector('button').disabled = true;
     }
     var note = document.querySelector('[data-done-note]');
-    if (note) note.hidden = false;
+    // "All set - follow the instructions above" is wrong when the reply says "contact us" (blocked / over budget).
+    if (note) note.hidden = !!early;
   }
 
   function showErrorFallback() {
@@ -596,7 +623,7 @@
 
     row.addEventListener('submit', function (e) {
       e.preventDefault();
-      if (state.isDone) return;
+      if (state.isDone || state.sending) return;
       var input = row.querySelector('input');
       var text = input.value.trim();
       if (!text) return;
@@ -618,7 +645,10 @@
       conversation_history: state.history,
       user_message: text
     };
-    if (!state.contextSent && state.businessContext) {
+    // Every turn, not just the first: the backend finds this signup's draft row by contact_number on each
+    // request. Sent only once, the final turn had no number, the finished row was saved without one, and
+    // the Meta form then found the old 'draft' row (409 "conversation isn't finished yet").
+    if (state.businessContext) {
       payload.business_context = state.businessContext;
     }
     if (referralCode) {
@@ -635,6 +665,7 @@
       return;
     }
 
+    state.sending = true;
     fetch(AVA_BACKEND_URL + '/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -645,18 +676,24 @@
         return res.json();
       })
       .then(function (data) {
+        state.sending = false;
         setTyping(false);
         state.contextSent = true;
         state.history.push({ role: 'assistant', content: data.reply });
-        state.isDone = !!data.done;
+        // blocked (this number already has a signup awaiting activation) and budgetExceeded also come back
+        // with done:true, but they are NOT the normal ending: the reply tells the visitor to contact us, and
+        // there is no Meta step to do. Only a normal ending is remembered as "done".
+        var early = !!(data.blocked || data.budgetExceeded);
+        state.isDone = !!data.done && !early;
         persist();
-        appendBubble('assistant', data.reply, state.isDone);
-        if (state.isDone) {
-          lockChatInput();
-          if (!state.metaSetupDone) showStage('meta-setup');
+        appendBubble('assistant', data.reply, !!data.done);
+        if (data.done) {
+          lockChatInput(early);
+          if (state.isDone && !state.metaSetupDone) showStage('meta-setup');
         }
       })
       .catch(function () {
+        state.sending = false;
         setTyping(false);
         showErrorFallback();
       });
@@ -697,19 +734,33 @@
     var status = document.querySelector('[data-pdf-status]');
     if (!input) return;
 
+    // The backend identifies an upload by the Phone Number ID from the Meta form and only accepts it once that
+    // form has been submitted - so the control stays hidden until then (attachRefresh() is called after the form).
+    attachRefresh = function () {
+      var ready = !!(state.metaSetupDone && state.phoneNumberId);
+      input.style.display = ready ? '' : 'none';
+      if (status) {
+        if (!ready) status.hidden = true;
+        else if (!status.dataset.touched) { status.hidden = false; status.textContent = t('chatAttachHint'); }
+      }
+    };
+    attachRefresh();
+
     input.addEventListener('change', function () {
       var file = input.files && input.files[0];
       if (!file) return;
-      if (status) { status.hidden = false; status.textContent = t('chatAttachSending'); }
+      if (status) { status.dataset.touched = '1'; status.hidden = false; status.textContent = t('chatAttachSending'); }
 
-      if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('YOUR_AVA_BACKEND_URL_HERE') === 0) {
+      var isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+      if (!AVA_BACKEND_URL || AVA_BACKEND_URL.indexOf('YOUR_AVA_BACKEND_URL_HERE') === 0 ||
+          !state.phoneNumberId || !isPdf || file.size > MAX_PDF_BYTES) {
         if (status) status.textContent = t('chatAttachErr');
         return;
       }
 
       var fd = new FormData();
+      fd.append('phone_number_id', state.phoneNumberId);
       fd.append('file', file);
-      if (state.businessContext) fd.append('contact_number', state.businessContext.contact_number);
 
       fetch(AVA_BACKEND_URL + '/upload-pdf', { method: 'POST', body: fd })
         .then(function (res) { if (!res.ok) throw new Error('bad status'); return res.json(); })
@@ -763,20 +814,36 @@
         })
       })
         .then(function (res) {
-          if (!res.ok) throw new Error('bad status');
-          return res.json().catch(function () { return {}; });
+          if (res.ok) return res.json().catch(function () { return {}; });
+          return res.json().catch(function () { return {}; }).then(function (body) {
+            var err = new Error('bad status');
+            err.status = res.status;
+            err.detail = (body && body.error) || '';
+            throw err;
+          });
         })
-        .then(function () {
+        .then(function (data) {
           state.metaSetupDone = true;
+          state.phoneNumberId = phoneNumberId;
+          // POST /complete-setup answers { reply }: the activation code + instructions. That reply is the ONLY
+          // place the client ever sees the code (/chat's final message just points them to this form), so it
+          // joins the conversation as the final bubble. (It used to be dropped: the code never reached the client.)
+          if (data && typeof data.reply === 'string' && data.reply) {
+            state.history.push({ role: 'assistant', content: data.reply });
+            appendBubble('assistant', data.reply, true);
+          }
           persist();
-          // Reveal the chat stage — it already holds Ava's final,
-          // locked reply (the OTP/activation instructions) from
-          // when done:true fired, so this is the OTP-instructions
-          // hand-off the flow was building toward.
+          attachRefresh();
           showStage('chat');
         })
-        .catch(function () {
-          if (warn) { warn.textContent = t('metaSetupError'); warn.hidden = false; }
+        .catch(function (err) {
+          // 409 "already completed": the details were received (e.g. the first answer was lost on a bad
+          // connection). The code is shown only once, so point them to us instead of a useless "try again".
+          var already = !!(err && err.status === 409 && /already/i.test(err.detail || ''));
+          if (warn) {
+            warn.textContent = already ? (tx('metaSetupAlready') + ' +' + BOLTANE_WHATSAPP) : t('metaSetupError');
+            warn.hidden = false;
+          }
           submitBtn.disabled = false;
           submitBtn.textContent = originalLabel;
         });
